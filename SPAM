@@ -1,0 +1,112 @@
+# Import necessary libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
+import nltk
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report, accuracy_score
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Embedding, LSTM, SpatialDropout1D
+
+# Load the dataset
+data = pd.read_csv('/content/combined_data.csv')
+
+# Display the first few rows and data types
+print(data.head())
+print(data.dtypes)
+
+# Convert the label column to string type if it's not already
+data['label'] = data['label'].astype(str).str.strip()
+
+# Check unique values in the label column
+print("Unique labels:", data['label'].unique())
+
+# Check the distribution of spam and ham
+label_counts = data['label'].value_counts()
+print("Label Counts:\n", label_counts)
+
+# EDA: Visualize the distribution of spam and ham messages
+sns.countplot(x='label', data=data)
+plt.title("Distribution of Spam and Ham Messages")
+plt.xlabel("Label")
+plt.ylabel("Count")
+plt.show()
+
+# Generate word cloud for spam messages
+if 'spam' in data['label'].values:
+    spam_words = ' '.join(data[data['label'] == 'spam']['text'])
+    if spam_words:
+        wordcloud_spam = WordCloud(width=800, height=400, background_color='white').generate(spam_words)
+
+        plt.figure(figsize=(10, 5))
+        plt.imshow(wordcloud_spam, interpolation='bilinear')
+        plt.axis('off')
+        plt.title("Word Cloud for Spam Messages")
+        plt.show()
+    else:
+        print("No words found in spam messages for the word cloud.")
+else:
+    print("No spam messages found.")
+
+# Generate word cloud for ham messages
+if 'ham' in data['label'].values:
+    ham_words = ' '.join(data[data['label'] == 'ham']['text'])
+    if ham_words:
+        wordcloud_ham = WordCloud(width=800, height=400, background_color='white').generate(ham_words)
+
+        plt.figure(figsize=(10, 5))
+        plt.imshow(wordcloud_ham, interpolation='bilinear')
+        plt.axis('off')
+        plt.title("Word Cloud for Ham Messages")
+        plt.show()
+    else:
+        print("No words found in ham messages for the word cloud.")
+else:
+    print("No ham messages found.")
+
+# Sample a smaller dataset for quicker testing
+data_sample = data.sample(frac=0.1, random_state=42)  # Sample 10% of the data
+X = data_sample['text']
+y = data_sample['label']
+
+# Encode the labels
+label_encoder = LabelEncoder()
+y_encoded = label_encoder.fit_transform(y)
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
+
+# Vectorize the text data using TF-IDF with reduced features
+vectorizer = TfidfVectorizer(max_features=1000)  # Reduce max features
+X_train_tfidf = vectorizer.fit_transform(X_train).toarray()
+X_test_tfidf = vectorizer.transform(X_test).toarray()
+
+# Build a simplified LSTM model
+model = Sequential()
+model.add(Embedding(input_dim=1000, output_dim=64, input_length=X_train_tfidf.shape[1]))  # Reduce embedding size
+model.add(SpatialDropout1D(0.2))
+model.add(LSTM(50))  # Reduce the number of LSTM units
+model.add(Dense(1, activation='sigmoid'))
+
+# Compile the model
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Train the model with increased batch size
+model.fit(X_train_tfidf, y_train, epochs=5, batch_size=128, verbose=2)
+
+# Make predictions
+y_pred = model.predict(X_test_tfidf)
+y_pred_classes = (y_pred > 0.5).astype(int)
+
+# Evaluate the model
+print("Accuracy:", accuracy_score(y_test, y_pred_classes))
+print(classification_report(y_test, y_pred_classes, target_names=label_encoder.classes_))
+
+# Optional: Save the model and vectorizer for future use
+model.save('spam_detector_model.h5')
+import joblib
+joblib.dump(vectorizer, 'tfidf_vectorizer.pkl')
