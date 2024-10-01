@@ -1,0 +1,170 @@
+# Here we are importing Library which are required
+import pandas as pd
+import numpy as np
+import math
+import datetime as dt
+
+import matplotlib.pyplot as plt
+from itertools import cycle
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
+import seaborn as sns
+
+from xgboost import XGBRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, explained_variance_score, r2_score
+from sklearn.metrics import mean_poisson_deviance, mean_gamma_deviance, accuracy_score
+from sklearn.preprocessing import MinMaxScaler
+
+from plotly.offline import plot, iplot, init_notebook_mode
+init_notebook_mode(connected=True)
+# Loading Dataset and remainig its columns
+
+data=pd.read_csv('/content/BTC-USD.csv')
+data = data.rename(columns={'Date': 'date','Open':'open','High':'high','Low':'low','Close':'close',
+                                'Adj Close':'adj_close','Volume':'volume'})
+data.describe()
+data.isnull().sum()
+data['date'] = pd.to_datetime(data.date)
+data.head()
+print("Starting date: ",data.iloc[0][0])
+print("Ending date: ", data.iloc[-1][0])
+print("Duration: ", data.iloc[-1][0]-data.iloc[0][0])
+y_2014 = data.loc[(data['date'] >= '2014-01-01')
+                     & (data['date'] < '2015-01-01')]
+
+y_2014.drop(y_2014[['adj_close','volume']],axis=1)
+monthvise= y_2014.groupby(y_2014['date'].dt.strftime('%B'))[['open','close']].mean()
+new_order = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+             'September', 'October', 'November', 'December']
+monthvise = monthvise.reindex(new_order, axis=0)
+monthvise
+import plotly.io as pio
+pio.renderers.default = 'notebook'  # For Jupyter
+# pio.renderers.default = 'colab'  # For Google Colab
+
+fig = go.Figure()
+
+fig.add_trace(go.Bar(
+    x=monthvise.index,
+    y=monthvise['open'],
+    name='Stock Open Price',
+    marker_color='crimson'
+))
+fig.add_trace(go.Bar(
+    x=monthvise.index,
+    y=monthvise['close'],
+    name='Stock Close Price',
+    marker_color='lightsalmon'
+))
+
+fig.update_layout(barmode='group', xaxis_tickangle=-45,
+                  title='Monthwise comparision between Stock open and close price')
+fig.show()
+import pandas as pd
+import plotly.graph_objects as go
+import plotly.io as pio
+
+# Ensure the renderer is set for Google Colab
+pio.renderers.default = 'colab'
+
+# Example: Load data (replace with your actual data loading method)
+# For demonstration, replace this with your actual data loading code
+data = {
+    'date': pd.date_range(start='2014-01-01', periods=12, freq='M'),
+    'high': [120, 130, 125, 140, 135, 150, 160, 155, 145, 140, 130, 125],
+    'low': [100, 110, 105, 120, 115, 130, 140, 135, 125, 120, 110, 105]
+}
+y_2014 = pd.DataFrame(data)
+
+# Convert 'date' column to datetime if not already
+y_2014['date'] = pd.to_datetime(y_2014['date'])
+
+# Define the new order of months
+new_order = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+# Group by month and calculate high and low prices
+monthvise_high = y_2014.groupby(y_2014['date'].dt.strftime('%B'))['high'].max()
+monthvise_high = monthvise_high.reindex(new_order)
+
+monthvise_low = y_2014.groupby(y_2014['date'].dt.strftime('%B'))['low'].min()
+monthvise_low = monthvise_low.reindex(new_order)
+
+# Create the plot
+fig = go.Figure()
+fig.add_trace(go.Bar(
+    x=monthvise_high.index,
+    y=monthvise_high,
+    name='Stock High Price',
+    marker_color='rgb(0, 153, 204)'
+))
+fig.add_trace(go.Bar(
+    x=monthvise_low.index,
+    y=monthvise_low,
+    name='Stock Low Price',
+    marker_color='rgb(255, 128, 0)'
+))
+
+fig.update_layout(
+    barmode='group',
+    title='Monthwise High and Low Stock Prices'
+)
+
+fig.show()
+import pandas as pd
+import plotly.express as px
+import plotly.io as pio
+from itertools import cycle
+
+# Set the renderer for Google Colab
+pio.renderers.default = 'colab'
+
+# Print column names to diagnose
+print("Column names before renaming:", y_2014.columns)
+
+# Remove any leading/trailing spaces
+y_2014.columns = y_2014.columns.str.strip()
+
+# Print column names after stripping spaces
+print("Column names after stripping spaces:", y_2014.columns)
+
+# Rename columns if necessary
+y_2014.rename(columns={
+    'date': 'Date',
+    'open': 'Open',
+    'close': 'Close',
+    'high': 'High',
+    'low': 'Low',
+    'adjclose': 'Adj Close',
+    'volume': 'Volume'
+}, inplace=True)
+
+# Print column names after renaming
+print("Column names after renaming:", y_2014.columns)
+
+# Reshape the DataFrame to long format with existing columns
+y_long = y_2014.melt(id_vars='Date', value_vars=['High', 'Low'],
+                     var_name='Parameter', value_name='Stock value')
+
+# Define a cycle for legend names
+names = cycle(['Stock High Price', 'Stock Low Price'])
+
+# Create the line plot using Plotly Express
+fig = px.line(y_long, x='Date', y='Stock value', color='Parameter',
+              labels={'Date': 'Date', 'Stock value': 'Stock value'},
+              title='Stock Analysis Chart')
+
+# Update legend names
+fig.for_each_trace(lambda t: t.update(name=next(names)))
+
+# Update layout
+fig.update_layout(
+    font_size=15,
+    font_color='black',
+    legend_title_text='Stock Parameters'
+)
+fig.update_xaxes(showgrid=False)
+fig.update_yaxes(showgrid=False)
+
+# Show plot
+fig.show()
